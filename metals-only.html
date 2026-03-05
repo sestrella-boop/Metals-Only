@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>METALS ONLY!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Press+Start+2P&display=swap');
+
+  :root {
+    --rust: #8B2500;
+    --rust-light: #C43B0F;
+    --gold: #C8922A;
+    --gold-light: #E8B84B;
+    --steel: #4A5568;
+    --steel-light: #718096;
+    --bg: #0a0a0f;
+    --paper: #D4C49A;
+    --paper-dark: #B8A878;
+    --ink: #1A1208;
+    --stamp-green: #2D6A4F;
+    --stamp-red: #7B1D0E;
+    --booth-wood: #3D2B1A;
+    --booth-dark: #221508;
+    --night-sky: #0d0d1a;
+    --crowd-dark: #111118;
+    --neon-pink: #ff2d78;
+    --neon-blue: #00e5ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--paper);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+  }
+
+  /* CRT scanlines */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ══════════════════════════════════════════
+     MAIN GAME LAYOUT — POV TICKETBOOTH
+  ══════════════════════════════════════════ */
+
+  #game-wrap {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* TOP BAR */
+  #topbar {
+    background: #0a0808;
+    border-bottom: 2px solid var(--rust);
+    padding: 5px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  #game-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.5vw, 13px);
+    color: var(--gold-light);
+    text-shadow: 0 0 14px rgba(232,184,75,0.6), 2px 2px 0 var(--rust);
+    letter-spacing: 1px;
+  }
+  #game-title span { color: var(--neon-pink); text-shadow: 0 0 10px rgba(255,45,120,0.8); }
+  #stats {
+    display: flex;
+    gap: clamp(8px,2vw,22px);
+  }
+  .stat { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .stat-label { font-size: clamp(6px,0.9vw,8px); color: var(--steel-light); letter-spacing:1px; text-transform:uppercase; font-family:'Share Tech Mono',monospace; }
+  .stat-value { font-size: clamp(14px,2vw,20px); color: var(--gold); font-family:'VT323',monospace; line-height:1; }
+  .stat-value.danger { color:#E05252; }
+
+  /* SCENE — the main viewport */
+  #scene {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* VENUE BACKGROUND — what you see through the window */
+  #venue-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      /* Stage glow at horizon */
+      radial-gradient(ellipse 80% 30% at 50% 52%, rgba(255,45,120,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 15% at 50% 55%, rgba(0,229,255,0.12) 0%, transparent 60%),
+      /* Night sky */
+      linear-gradient(180deg, #060610 0%, #0d0d20 40%, #1a0d2e 60%, #0d0820 100%);
+  }
+
+  /* Pixel stars */
+  #venue-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 8%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 20%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 5%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 18%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 12%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 92% 25%, rgba(255,255,255,0.6) 0%, transparent 100%);
+  }
+
+  /* Venue building / stage silhouette */
+  #stage-silhouette {
+    position: absolute;
+    bottom: 38%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 35%;
+    background: #080810;
+    clip-path: polygon(0% 100%, 5% 60%, 10% 55%, 15% 58%, 20% 40%, 25% 42%, 30% 20%, 35% 22%, 40% 10%, 45% 12%, 50% 5%, 55% 12%, 60% 10%, 65% 22%, 70% 20%, 75% 42%, 80% 40%, 85% 58%, 90% 55%, 95% 60%, 100% 100%);
+  }
+
+  /* Neon sign on venue */
+  #venue-sign {
+    position: absolute;
+    bottom: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'VT323', monospace;
+    font-size: clamp(10px, 2vw, 18px);
+    color: var(--neon-pink);
+    text-shadow: 0 0 8px var(--neon-pink), 0 0 20px rgba(255,45,120,0.5);
+    letter-spacing: 3px;
+    white-space: nowrap;
+    animation: flicker 4s infinite;
+  }
+  @keyframes flicker {
+    0%,95%,100% { opacity:1; }
+    96% { opacity:0.4; }
+    98% { opacity:0.9; }
+  }
+
+  /* Crowd silhouette */
+  #crowd {
+    position: absolute;
+    bottom: 36%;
+    left: 0; right: 0;
+    height: 10%;
+    background: #080810;
+    /* Pixelated crowd heads */
+    clip-path: polygon(
+      0% 100%, 0% 60%, 2% 40%, 3% 60%, 4% 30%, 5% 60%, 6% 50%, 7% 20%, 8% 50%, 9% 60%,
+      10% 35%, 11% 60%, 12% 45%, 13% 25%, 14% 55%, 15% 40%, 16% 60%, 17% 30%, 18% 50%,
+      19% 15%, 20% 50%, 21% 60%, 22% 40%, 23% 55%, 24% 30%, 25% 60%, 26% 45%, 27% 20%,
+      28% 55%, 29% 60%, 30% 35%, 31% 50%, 32% 60%, 33% 25%, 34% 55%, 35% 40%, 36% 60%,
+      37% 30%, 38% 50%, 39% 45%, 40% 60%, 41% 20%, 42% 55%, 43% 60%, 44% 35%, 45% 50%,
+      46% 40%, 47% 60%, 48% 25%, 49% 50%, 50% 60%, 51% 30%, 52% 45%, 53% 60%, 54% 40%,
+      55% 55%, 56% 20%, 57% 60%, 58% 35%, 59% 50%, 60% 60%, 61% 40%, 62% 25%, 63% 55%,
+      64% 60%, 65% 30%, 66% 50%, 67% 45%, 68% 60%, 69% 15%, 70% 50%, 71% 60%, 72% 35%,
+      73% 55%, 74% 40%, 75% 60%, 76% 25%, 77% 50%, 78% 60%, 79% 30%, 80% 45%, 81% 60%,
+      82% 20%, 83% 55%, 84% 60%, 85% 35%, 86% 50%, 87% 40%, 88% 60%, 89% 30%, 90% 50%,
+      91% 45%, 92% 60%, 93% 25%, 94% 55%, 95% 40%, 96% 60%, 97% 35%, 98% 50%, 99% 60%,
+      100% 40%, 100% 100%
+    );
+  }
+
+  /* Ground / pavement outside */
+  #pavement {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 36%;
+    background: linear-gradient(180deg, #1a1520 0%, #0f0e14 40%, #0a090e 100%);
+    border-top: 2px solid #2a2535;
+  }
+
+  /* Rope/barrier line */
+  #barrier {
+    position: absolute;
+    bottom: 30%;
+    left: 5%;
+    right: 5%;
+    height: 3px;
+    background: repeating-linear-gradient(90deg, var(--gold) 0px, var(--gold) 12px, transparent 12px, transparent 20px);
+    opacity: 0.5;
+  }
+
+  /* TICKET BOOTH FRAME — the POV frame you look through */
+  #booth-frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* Left wall of booth */
+  #booth-frame::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: clamp(60px, 12vw, 140px);
+    background: linear-gradient(90deg, #1a0e06 0%, #2a1a0a 60%, #3d2b1a 100%);
+    border-right: 3px solid #5a3a1a;
+    box-shadow: inset -10px 0 20px rgba(0,0,0,0.5);
+  }
+
+  /* Right wall of booth */
+  #booth-frame::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; right: 0;
+    width: clamp(60px, 12vw, 140px);
+    background: linear-gradient(270deg, #1a0e06 0%, #2a1a0a 60%, #3d2b1a 100%);
+    border-left: 3px solid #5a3a1a;
+    box-shadow: inset 10px 0 20px rgba(0,0,0,0.5);
+  }
+
+  /* TOP of booth frame — ceiling/overhang */
+  #booth-top {
+    position: absolute;
+    top: 0;
+    left: clamp(60px,12vw,140px);
+    right: clamp(60px,12vw,140px);
+    height: clamp(16px,3vh,30px);
+    background: linear-gradient(180deg, #1a0e06 0%, #3d2b1a 100%);
+    border-bottom: 3px solid #5a3a1a;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+    z-index: 5;
+  }
+
+  /* COUNTER — the ledge at the bottom */
+  #counter {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: clamp(90px, 22vh, 180px);
+    background: linear-gradient(180deg, #2a1a0a 0%, #1a0e06 50%, #0f0906 100%);
+    border-top: 4px solid #5a3a1a;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.8), inset 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 20;
+  }
+
+  /* Counter surface texture */
+  #counter::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 8px;
+    background: linear-gradient(180deg, #6a4a2a 0%, #3d2b1a 100%);
+  }
+
+  /* Small window frame at glass level */
+  #glass-frame {
+    position: absolute;
+    top: clamp(16px,3vh,30px);
+    bottom: clamp(90px,22vh,180px);
+    left: clamp(60px,12vw,140px);
+    right: clamp(60px,12vw,140px);
+    border: 3px solid #5a3a1a;
+    border-top: none;
+    border-bottom: none;
+    pointer-events: none;
+    z-index: 6;
+    /* Glass tint */
+    background: rgba(0,20,40,0.08);
+  }
+
+  /* Metal figure standing at window */
+  #metal-figure {
+    position: absolute;
+    bottom: clamp(90px,22vh,180px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.3s ease;
+  }
+
+  #metal-figure.entering {
+    animation: figureEnter 0.5s ease forwards;
+  }
+  #metal-figure.leaving-approve {
+    animation: figureLeaveApprove 0.5s ease forwards;
+  }
+  #metal-figure.leaving-reject {
+    animation: figureLeaveReject 0.4s ease forwards;
+  }
+
+  @keyframes figureEnter {
+    from { transform: translateX(-50%) translateY(60px) scale(0.85); opacity:0; }
+    to   { transform: translateX(-50%) translateY(0)   scale(1);    opacity:1; }
+  }
+  @keyframes figureLeaveApprove {
+    from { transform: translateX(-50%) translateY(0); opacity:1; }
+    to   { transform: translateX(60%)  translateY(0); opacity:0; }
+  }
+  @keyframes figureLeaveReject {
+    from { transform: translateX(-50%) translateY(0) rotate(0deg); opacity:1; }
+    to   { transform: translateX(-160%) translateY(10px) rotate(-8deg); opacity:0; }
+  }
+
+  /* Pixel art canvas for the metal character */
+  #pixel-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* ADMISSION CARD — slides up from counter */
+  #card-area {
+    position: absolute;
+    bottom: clamp(90px,22vh,180px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(260px, 48vw, 420px);
+    z-index: 25;
+  }
+
+  #admission-card {
+    background: var(--paper);
+    color: var(--ink);
+    border: 2px solid var(--paper-dark);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.8), 4px 4px 0 rgba(0,0,0,0.4);
+    font-family: 'Share Tech Mono', monospace;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.2,0.8,0.2,1);
+    position: relative;
+  }
+  #admission-card.show { transform: translateY(0); }
+
+  #card-header {
+    background: var(--rust);
+    padding: 5px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #card-header h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(5px,0.9vw,8px);
+    color: var(--paper);
+    letter-spacing: 1px;
+  }
+  .card-ref { font-size: clamp(7px,1vw,9px); color: var(--paper-dark); }
+
+  #card-body {
+    padding: 8px 12px;
+    display: flex;
+    gap: 10px;
+  }
+
+  #card-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: clamp(50px,8vw,70px);
+  }
+
+  .card-symbol {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(20px,3.5vw,34px);
+    color: var(--rust);
+    line-height: 1;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+  }
+  .card-name {
+    font-family: 'VT323', monospace;
+    font-size: clamp(12px,1.8vw,17px);
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  #card-right { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+  .card-field {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--paper-dark);
+    padding-bottom: 2px;
+    gap: 6px;
+  }
+  .cf-label {
+    font-size: clamp(6px,0.9vw,8px);
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .cf-val {
+    font-size: clamp(7px,1vw,9px);
+    color: var(--ink);
+    font-family: 'Press Start 2P', monospace;
+    text-align: right;
+  }
+  .cf-val.danger-val { color: var(--rust); }
+  .cf-val.forged-val { color: var(--rust); text-decoration: underline wavy #C43B0F; }
+
+  #card-desc {
+    padding: 5px 12px 8px;
+    font-size: clamp(7px,1vw,9px);
+    color: #5a6a7a;
+    font-style: italic;
+    border-top: 1px solid var(--paper-dark);
+    line-height: 1.5;
+  }
+
+  /* STAMP on card */
+  #card-stamp {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotate(-12deg) scale(0);
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(10px,2vw,18px);
+    letter-spacing: 2px;
+    border: 4px solid;
+    padding: 4px 10px;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.15s cubic-bezier(0.2,0.8,0.2,1), opacity 0.15s;
+    z-index: 10;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.05);
+  }
+  #card-stamp.approved { color: var(--stamp-green); border-color: var(--stamp-green); }
+  #card-stamp.rejected { color: var(--stamp-red); border-color: var(--stamp-red); }
+  #card-stamp.show { transform: translate(-50%,-50%) rotate(-12deg) scale(1); opacity: 0.9; }
+
+  /* COUNTER TOP — where card slides onto */
+  #counter-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 12px;
+    background: linear-gradient(180deg, #6a4a2a 0%, #4a3020 100%);
+  }
+
+  /* COUNTER contents — controls, rulebook */
+  #counter-inner {
+    position: absolute;
+    top: 14px;
+    left: clamp(60px,12vw,140px);
+    right: clamp(60px,12vw,140px);
+    bottom: 6px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: start;
+  }
+
+  /* Right side of counter — controls */
+  #controls-col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+  }
+
+  #verdict-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .verdict-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(6px,1vw,9px);
+    font-weight: 700;
+    padding: clamp(6px,1.2vh,10px) clamp(8px,1.5vw,14px);
+    border: 2px solid;
+    border-radius: 2px;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.1s;
+    text-transform: uppercase;
+    touch-action: manipulation;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  #btn-approve { color:#4CAF7A; border-color:#4CAF7A; }
+  #btn-approve:hover, #btn-approve:active { background:#4CAF7A; color:#0a0a0f; }
+  #btn-reject  { color:#E05252; border-color:#E05252; }
+  #btn-reject:hover, #btn-reject:active  { background:#E05252; color:#0a0a0f; }
+  .verdict-btn:disabled { opacity:0.2; cursor:not-allowed; }
+
+  #message-log {
+    font-size: clamp(7px,1vw,9px);
+    color: var(--steel-light);
+    line-height: 1.4;
+    max-width: 200px;
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #message-log.correct { color:#4CAF7A; }
+  #message-log.wrong   { color:#E05252; }
+  #message-log.neutral { color:var(--gold); }
+
+  #advance-wrap { display:none; flex-direction:column; gap:2px; align-items:flex-end; }
+  #advance-wrap.show { display:flex; }
+  #advance-label { font-size:8px; color:var(--steel-light); letter-spacing:1px; text-align:right; font-family:'Share Tech Mono',monospace; }
+  #advance-bar { height:3px; background:var(--steel); border-radius:2px; overflow:hidden; width:100px; }
+  #advance-fill { height:100%; background:#4CAF7A; width:100%; }
+
+  #next-btn {
+    display:none;
+    font-family:'Press Start 2P',monospace;
+    font-size: clamp(6px,0.9vw,8px);
+    padding: 6px 10px;
+    background:transparent;
+    border:1px solid var(--steel);
+    color:var(--steel-light);
+    cursor:pointer;
+    transition:all 0.15s;
+    text-transform:uppercase;
+    touch-action:manipulation;
+  }
+  #next-btn:hover, #next-btn:active { border-color:var(--gold); color:var(--gold); }
+  #next-btn.show { display:block; }
+
+  /* Left side — mini rulebook on counter */
+  #counter-rulebook {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rust) var(--booth-dark);
+    max-height: 100%;
+  }
+  #rulebook-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(5px,0.8vw,7px);
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .rule {
+    font-size: clamp(6px,0.85vw,8px);
+    color: var(--steel-light);
+    line-height: 1.5;
+    padding: 3px 5px;
+    border-left: 2px solid var(--rust);
+    margin-bottom: 3px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .rule strong {
+    color: var(--gold-light);
+    display: block;
+    font-size: clamp(5px,0.75vw,7px);
+    letter-spacing: 1px;
+    margin-bottom: 1px;
+  }
+  .rule.active-rule { border-left-color: var(--gold); background: rgba(200,146,42,0.07); color: var(--paper-dark); }
+
+  /* Progress bar at very top inside topbar */
+  #progress-bar { height:2px; background:var(--steel); flex-shrink:0; }
+  #progress-fill { height:100%; background:linear-gradient(90deg,var(--rust),var(--gold)); transition:width 0.4s ease; }
+
+  /* ══════════════════════════════════════════
+     FAILURE MODAL
+  ══════════════════════════════════════════ */
+  #fail-modal { display:none; position:fixed; inset:0; background:rgba(4,2,2,0.93); z-index:500; align-items:center; justify-content:center; padding:12px; }
+  #fail-modal.show { display:flex; }
+  #fail-box { background:#1A0800; border:2px solid var(--rust-light); width:100%; max-width:500px; max-height:92vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 0 40px rgba(196,59,15,0.35); animation:modalIn 0.2s ease; }
+  #fail-body { overflow-y:auto; flex:1; padding:14px 16px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:var(--rust) #1A0800; }
+  @keyframes modalIn { from{transform:scale(0.93) translateY(8px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+
+  #fail-head { background:var(--rust); padding:10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .fail-icon { font-size:20px; }
+  #fail-head h2 { font-family:'Press Start 2P',monospace; font-size:clamp(8px,1.5vw,12px); letter-spacing:1px; color:var(--paper); }
+  .fail-sub-head { font-size:8px; color:var(--paper-dark); letter-spacing:2px; margin-top:2px; font-family:'Share Tech Mono',monospace; }
+
+  #fail-metal-row { display:flex; align-items:center; gap:12px; padding-bottom:10px; border-bottom:1px solid #3A1A0A; }
+  #fail-sym { font-family:'Press Start 2P',monospace; font-size:clamp(22px,4vw,34px); color:var(--rust-light); min-width:44px; line-height:1; }
+  #fail-mname { font-family:'VT323',monospace; font-size:clamp(18px,3vw,24px); color:var(--paper); }
+  #fail-msub  { font-size:9px; color:var(--steel-light); margin-top:2px; }
+
+  .fsec-title { font-size:8px; letter-spacing:2px; color:var(--rust-light); text-transform:uppercase; margin-bottom:4px; font-family:'Share Tech Mono',monospace; }
+  .fail-reason { background:rgba(196,59,15,0.1); border-left:3px solid var(--rust-light); padding:6px 8px; font-size:clamp(9px,1.3vw,11px); color:var(--paper-dark); line-height:1.55; margin-bottom:4px; }
+  .fail-reason strong { color:var(--gold-light); display:block; font-size:8px; margin-bottom:2px; }
+
+  #fail-props-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  .fprop { background:rgba(255,255,255,0.03); border:1px solid #3A1A0A; padding:4px 6px; }
+  .fprop-label { font-size:8px; color:var(--steel-light); letter-spacing:1px; }
+  .fprop-val { font-family:'VT323',monospace; font-size:clamp(13px,2vw,16px); color:var(--paper); margin-top:1px; }
+  .fprop-val.ok  { color:#4CAF7A; }
+  .fprop-val.bad { color:#E05252; }
+
+  #fail-note { font-size:clamp(9px,1.2vw,10px); color:var(--steel-light); line-height:1.6; background:rgba(255,255,255,0.02); border:1px solid #3A1A0A; padding:6px 8px; font-style:italic; }
+  #fail-foot { padding:9px 14px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #3A1A0A; flex-shrink:0; background:#1A0800; }
+  #fail-cit-left { font-size:clamp(9px,1.3vw,10px); color:#E05252; }
+  #fail-close { font-family:'Press Start 2P',monospace; font-size:clamp(7px,1vw,9px); letter-spacing:2px; padding:8px 14px; background:var(--rust); border:none; color:var(--paper); cursor:pointer; transition:all 0.1s; text-transform:uppercase; touch-action:manipulation; }
+  #fail-close:hover { background:var(--rust-light); }
+
+  /* ══════════════════════════════════════════
+     INTRO SCREEN
+  ══════════════════════════════════════════ */
+  #intro {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, #1a0d2e 0%, #0a0810 60%, #050408 100%);
+    z-index: 600;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 20px; overflow-y: auto;
+  }
+  #intro h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(18px,5vw,42px);
+    color: var(--gold-light);
+    letter-spacing: clamp(2px,1vw,6px);
+    text-shadow: 0 0 30px rgba(200,146,42,0.6), 3px 3px 0 var(--rust), 0 0 60px rgba(255,45,120,0.3);
+    text-align: center;
+    line-height: 1.4;
+  }
+  #intro h1 span { color: var(--neon-pink); text-shadow: 0 0 20px rgba(255,45,120,0.9), 2px 2px 0 #8b0033; }
+  .intro-sub { font-size: clamp(7px,1.2vw,10px); letter-spacing:3px; color:var(--steel-light); text-align:center; font-family:'Share Tech Mono',monospace; }
+  .intro-rules {
+    width:100%; max-width:460px;
+    background:rgba(30,21,8,0.9);
+    border:2px solid var(--rust);
+    padding:14px 18px;
+    font-size:clamp(8px,1.3vw,11px);
+    color:var(--paper-dark);
+    line-height:1.9;
+    font-family:'Share Tech Mono',monospace;
+  }
+  .intro-rules h3 {
+    font-family:'Press Start 2P',monospace;
+    font-size:clamp(7px,1vw,9px);
+    letter-spacing:2px;
+    color:var(--gold);
+    margin-bottom:10px;
+  }
+  #start-btn {
+    font-family:'Press Start 2P',monospace;
+    font-size:clamp(9px,1.5vw,12px);
+    letter-spacing:3px;
+    padding:14px 30px;
+    background:var(--rust);
+    border:none; color:var(--paper);
+    cursor:pointer;
+    transition:all 0.15s;
+    touch-action:manipulation;
+    box-shadow: 3px 3px 0 #5a1500;
+  }
+  #start-btn:hover { background:var(--rust-light); box-shadow:0 0 20px rgba(196,59,15,0.5), 3px 3px 0 #8b2500; transform: translate(-1px,-1px); }
+
+  /* ══════════════════════════════════════════
+     GAME OVER
+  ══════════════════════════════════════════ */
+  #game-over { display:none; position:fixed; inset:0; background:rgba(4,2,6,0.96); z-index:600; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; text-align:center; }
+  #game-over.show { display:flex; }
+  #game-over h1 { font-family:'Press Start 2P',monospace; font-size:clamp(16px,4vw,32px); color:var(--rust-light); letter-spacing:2px; text-shadow:0 0 30px rgba(196,59,15,0.5), 3px 3px 0 #5a1500; line-height:1.5; }
+  .go-score { font-family:'VT323',monospace; font-size:clamp(28px,5vw,42px); color:var(--gold-light); }
+  .go-summary { font-size:clamp(8px,1.3vw,10px); color:var(--paper-dark); max-width:400px; line-height:1.9; font-family:'Share Tech Mono',monospace; }
+  #restart-btn { font-family:'Press Start 2P',monospace; font-size:clamp(8px,1.2vw,10px); letter-spacing:3px; padding:12px 24px; background:transparent; border:2px solid var(--gold); color:var(--gold); cursor:pointer; transition:all 0.15s; box-shadow: 2px 2px 0 #7a5500; }
+  #restart-btn:hover { background:var(--gold); color:var(--bg); }
+
+  /* Mobile drawer */
+  #directives-drawer { display:none; position:fixed; inset:0; background:rgba(5,2,1,0.93); z-index:400; align-items:flex-end; }
+  #directives-drawer.open { display:flex; }
+  #drawer-inner { background:#1E1508; border-top:2px solid var(--rust); width:100%; max-height:65vh; display:flex; flex-direction:column; padding-bottom:max(12px,env(safe-area-inset-bottom)); }
+  #drawer-head { background:var(--rust); padding:8px 14px; display:flex; justify-content:space-between; align-items:center; font-family:'Press Start 2P',monospace; font-size:8px; letter-spacing:2px; color:var(--paper); }
+  #drawer-close { background:none; border:none; color:var(--paper); font-size:18px; cursor:pointer; padding:0 4px; }
+  #drawer-content { overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+
+  /* Mobile-only toggle */
+  #directives-toggle { display:none; }
+
+  @media (max-width: 699px) {
+    #counter-rulebook { display: none; }
+    #directives-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30,21,8,0.9);
+      border: 1px solid var(--rust);
+      padding: 4px 8px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      letter-spacing: 2px;
+      color: var(--gold);
+      cursor: pointer;
+      text-transform: uppercase;
+      touch-action: manipulation;
+    }
+    .verdict-btn { font-size: 7px; padding: 8px 10px; }
+    .card-symbol { font-size: 18px; }
+    #card-body { padding: 6px 8px; gap: 6px; }
+  }
+
+  /* Neon light strip on booth ceiling */
+  #neon-strip {
+    position: absolute;
+    top: clamp(16px,3vh,30px);
+    left: clamp(60px,12vw,140px);
+    right: clamp(60px,12vw,140px);
+    height: 3px;
+    background: var(--neon-blue);
+    box-shadow: 0 0 8px var(--neon-blue), 0 0 20px rgba(0,229,255,0.4);
+    z-index: 7;
+  }
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro">
+  <h1>METALS<br><span>ONLY!</span></h1>
+  <div class="intro-sub">IRON PIT ARENA — GATE A — NIGHT SHIFT</div>
+  <div class="intro-rules">
+    <h3>⚡ BOUNCER BRIEFING</h3>
+    You're at the ticket booth. Metals line up one by one — check their admission card against tonight's rules.<br><br>
+    <strong style="color:#4CAF7A">[ LET IN ]</strong> — They're metal enough. Next one walks up automatically.<br>
+    <strong style="color:#E05252">[ KICK OUT ]</strong> — Not tonight. Review the incident before continuing.<br><br>
+    Three wrong calls and you're <strong style="color:#E05252">fired</strong>. Watch for <strong style="color:var(--gold)">fake cards</strong>.
+  </div>
+  <button id="start-btn" onclick="startGame()">⚡ START SHIFT</button>
+</div>
+
+<!-- FAILURE MODAL -->
+<div id="fail-modal">
+  <div id="fail-box">
+    <div id="fail-head">
+      <div class="fail-icon">⚠</div>
+      <div>
+        <h2 id="fail-title">WRONG CALL</h2>
+        <div class="fail-sub-head" id="fail-subtitle">INCIDENT REPORT — STRIKE ISSUED</div>
+      </div>
+    </div>
+    <div id="fail-body">
+      <div id="fail-metal-row">
+        <div id="fail-sym">—</div>
+        <div>
+          <div id="fail-mname">—</div>
+          <div id="fail-msub">—</div>
+        </div>
+      </div>
+      <div>
+        <div class="fsec-title">⚑ WHY YOU MESSED UP</div>
+        <div id="fail-reasons"></div>
+      </div>
+      <div>
+        <div class="fsec-title">ACTUAL METAL STATS</div>
+        <div id="fail-props-grid"></div>
+      </div>
+      <div id="fail-note"></div>
+    </div>
+    <div id="fail-foot">
+      <div id="fail-cit-left"></div>
+      <button id="fail-close" onclick="closeFailModal()">GOT IT ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE DIRECTIVES DRAWER -->
+<div id="directives-drawer">
+  <div id="drawer-inner">
+    <div id="drawer-head">
+      <span>▶ TONIGHT'S RULES</span>
+      <button id="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div id="drawer-content"></div>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="game-over">
+  <h1>SHIFT<br>OVER</h1>
+  <div class="go-score" id="go-score"></div>
+  <div class="go-summary" id="go-summary"></div>
+  <button id="restart-btn" onclick="restartGame()">NEW SHIFT</button>
+</div>
+
+<!-- MAIN GAME UI -->
+<div id="game-wrap">
+  <!-- Top HUD bar -->
+  <div id="topbar">
+    <div id="game-title">METALS <span>ONLY!</span></div>
+    <div id="stats">
+      <div class="stat"><span class="stat-label">LET IN</span><span class="stat-value" id="s-approved">0</span></div>
+      <div class="stat"><span class="stat-label">KICKED</span><span class="stat-value" id="s-rejected">0</span></div>
+      <div class="stat"><span class="stat-label">STRIKES</span><span class="stat-value" id="s-citations">0</span></div>
+      <div class="stat"><span class="stat-label">IN LINE</span><span class="stat-value" id="s-remaining">10</span></div>
+    </div>
+  </div>
+  <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+
+  <!-- The main POV scene -->
+  <div id="scene">
+    <!-- Background venue -->
+    <div id="venue-bg"></div>
+    <div id="venue-sign">⚡ IRON PIT ARENA ⚡</div>
+    <div id="stage-silhouette"></div>
+    <div id="crowd"></div>
+    <div id="pavement"></div>
+    <div id="barrier"></div>
+
+    <!-- Booth frame (left/right walls drawn via CSS) -->
+    <div id="booth-frame"></div>
+    <div id="booth-top"></div>
+    <div id="neon-strip"></div>
+    <div id="glass-frame"></div>
+
+    <!-- Metal character standing at window -->
+    <div id="metal-figure">
+      <canvas id="pixel-canvas" width="80" height="120"></canvas>
+    </div>
+
+    <!-- Admission card slides up from counter -->
+    <div id="card-area">
+      <div id="admission-card">
+        <div id="card-header">
+          <h2>ADMISSION CARD</h2>
+          <span class="card-ref" id="doc-id">REF: —</span>
+        </div>
+        <div id="card-body">
+          <div id="card-left">
+            <div class="card-symbol" id="metal-symbol">—</div>
+            <div class="card-name" id="metal-name">—</div>
+          </div>
+          <div id="card-right" id="props-grid"></div>
+        </div>
+        <div id="card-desc" id="desc-box"></div>
+        <div id="card-stamp"></div>
+      </div>
+    </div>
+
+    <!-- Counter / booth bottom -->
+    <div id="counter">
+      <div id="counter-top"></div>
+      <div id="counter-inner">
+        <!-- Rulebook on left side of counter -->
+        <div id="counter-rulebook">
+          <div id="rulebook-title">▶ TONIGHT'S RULES</div>
+          <div id="rulebook-body"></div>
+        </div>
+
+        <!-- Controls on right -->
+        <div id="controls-col">
+          <button id="directives-toggle" onclick="openDrawer()">📋 RULES</button>
+          <div id="verdict-buttons">
+            <button class="verdict-btn" id="btn-approve" onclick="makeDecision('approve')">LET IN 🤘</button>
+            <button class="verdict-btn" id="btn-reject"  onclick="makeDecision('reject')">KICK OUT 🚫</button>
+          </div>
+          <div id="message-log" class="neutral">Next person stepping up...</div>
+          <div id="advance-wrap">
+            <div id="advance-label">NEXT IN <span id="advance-count">3</span>s — <span style="cursor:pointer;text-decoration:underline;" onclick="skipAdvance()">SKIP</span></div>
+            <div id="advance-bar"><div id="advance-fill"></div></div>
+          </div>
+          <button id="next-btn" onclick="nextEntry()">NEXT IN LINE ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PIXEL ART METAL CHARACTERS ────────────────────────────────────────────────
+// Each metal has a unique pixel art color palette and design rendered on canvas
+
+const METAL_PIXEL_ART = {
+  // Each entry: { bodyColor, headColor, accent, eyeColor, special }
+  Fe: { body:'#8a9ba8', head:'#a0b0bc', acc:'#c04020', eye:'#ff6040', glow:null },
+  Au: { body:'#d4a820', head:'#e8c840', acc:'#f0e060', eye:'#fff0a0', glow:'#e8c840' },
+  Pb: { body:'#606878', head:'#707888', acc:'#404850', eye:'#a0c0e0', glow:null },
+  Hg: { body:'#b0c8d8', head:'#c8e0f0', acc:'#e0f4ff', eye:'#80d0ff', glow:'#80d0ff' },
+  Ti: { body:'#9090a8', head:'#a8a8c0', acc:'#c0d0e8', eye:'#60a0e0', glow:null },
+  U:  { body:'#507040', head:'#608050', acc:'#80ff40', eye:'#40ff00', glow:'#80ff40' },
+  Cu: { body:'#b05020', head:'#c86030', acc:'#e08040', eye:'#ff9060', glow:null },
+  Al: { body:'#c0c8d0', head:'#d0d8e0', acc:'#e8eef4', eye:'#a0c8f0', glow:'#d0e8ff' },
+  Ni: { body:'#808898', head:'#9098a8', acc:'#b0c0d0', eye:'#40c080', glow:null },
+  Pt: { body:'#d0d0e0', head:'#e0e0f0', acc:'#f0f0ff', eye:'#c0d0ff', glow:'#c0d0ff' },
+  W:  { body:'#404850', head:'#505860', acc:'#708090', eye:'#a0c0e0', glow:null },
+  Cr: { body:'#708090', head:'#8090a0', acc:'#c0d8e8', eye:'#60e0ff', glow:'#60e0ff' },
+};
+
+function drawPixelMetal(symbol, decision) {
+  const canvas = document.getElementById('pixel-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 80, 120);
+
+  const pal = METAL_PIXEL_ART[symbol] || { body:'#808090', head:'#9090a0', acc:'#aaaacc', eye:'#ffffff', glow:null };
+
+  // Scale: each "pixel" = 4px for that chunky look
+  const P = 4;
+  function px(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * P, y * P, P, P);
+  }
+  function row(y, cols, color) {
+    cols.forEach(x => px(x, y, color));
+  }
+
+  const dark = shadeColor(pal.body, -40);
+  const light = shadeColor(pal.head, 30);
+
+  // Draw figure (20 wide × 30 tall at P=4 → 80×120 canvas)
+  // HEAD (y 0-5)
+  const headCols = [7,8,9,10,11,12];
+  row(0, headCols, pal.head);
+  row(1, [6,...headCols,13], pal.head);
+  row(2, [6,...headCols,13], pal.head);
+  // Eyes
+  px(8, 2, pal.eye); px(11, 2, pal.eye);
+  // Mouth area
+  row(3, [7,8,9,10,11,12,13], pal.head);
+  row(4, [7,8,9,10,11,12], dark);
+  row(5, [8,9,10,11], dark);
+
+  // Symbol on shirt area (simplified — just colored mark)
+  // NECK
+  row(6, [9,10], shadeColor(pal.head, -20));
+
+  // SHOULDERS (y 7-8)
+  row(7, [5,6,7,8,9,10,11,12,13,14], pal.body);
+  row(8, [4,5,6,7,8,9,10,11,12,13,14,15], pal.body);
+
+  // TORSO (y 9-16)
+  for (let y=9; y<=16; y++) {
+    row(y, [5,6,7,8,9,10,11,12,13,14], pal.body);
+  }
+  // Accent stripe on torso
+  row(10, [8,9,10,11], pal.acc);
+  row(11, [8,9,10,11], pal.acc);
+
+  // Arms (y 9-15)
+  for (let y=9; y<=15; y++) {
+    px(4, y, dark); px(3, y, dark);       // left arm
+    px(15, y, dark); px(16, y, dark);      // right arm
+  }
+  // Hands
+  row(15, [2,3], pal.head);
+  row(16, [2,3], pal.head);
+  row(15, [16,17], pal.head);
+  row(16, [16,17], pal.head);
+
+  // BELT
+  row(17, [5,6,7,8,9,10,11,12,13,14], shadeColor(pal.acc,-30));
+
+  // LEGS (y 18-26)
+  for (let y=18; y<=26; y++) {
+    row(y, [5,6,7,8], dark);
+    row(y, [11,12,13,14], dark);
+  }
+
+  // Feet
+  row(27, [4,5,6,7,8], shadeColor(pal.body,-50));
+  row(27, [11,12,13,14,15], shadeColor(pal.body,-50));
+  row(28, [4,5,6,7], shadeColor(pal.body,-60));
+  row(28, [12,13,14,15], shadeColor(pal.body,-60));
+
+  // GLOW overlay for special metals
+  if (pal.glow) {
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = pal.glow;
+    ctx.fillRect(0, 0, 80, 120);
+    ctx.globalAlpha = 1;
+  }
+
+  // Decision flash
+  if (decision === 'approve') {
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#4CAF7A';
+    ctx.fillRect(0, 0, 80, 120);
+    ctx.globalAlpha = 1;
+  } else if (decision === 'reject') {
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#E05252';
+    ctx.fillRect(0, 0, 80, 120);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function shadeColor(hex, pct) {
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = Math.max(0, Math.min(255, (num >> 16) + pct));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + pct));
+  const b = Math.max(0, Math.min(255, (num & 0xff) + pct));
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+
+const METALS_DB = [
+  { symbol:'Fe', name:'Iron',      category:'Ferrous Metal',         atomicNumber:26, meltingPoint:1538, density:7.87,  conductivity:'Moderate', magnetic:true,  toxic:false, radioactive:false, origin:'The South Side',      desc:'A classic. Hardcore, highly magnetic, loves the pit. Oxidises a little in the rain but never misses a show.' },
+  { symbol:'Au', name:'Gold',      category:'Precious Metal',        atomicNumber:79, meltingPoint:1064, density:19.3,  conductivity:'High',     magnetic:false, toxic:false, radioactive:false, origin:'VIP Lounge',          desc:'Rare and noble. Never causes trouble, extremely chill. High-value patron. Always welcome.' },
+  { symbol:'Pb', name:'Lead',      category:'Heavy Metal',           atomicNumber:82, meltingPoint:327,  density:11.35, conductivity:'Low',      magnetic:false, toxic:true,  radioactive:false, origin:'Industrial District', desc:'Dense and sketchy. TOXIC — causes serious harm with exposure. Banned from the premises for public safety.' },
+  { symbol:'Hg', name:'Mercury',   category:'Liquid Metal',          atomicNumber:80, meltingPoint:-39,  density:13.53, conductivity:'Moderate', magnetic:false, toxic:true,  radioactive:false, origin:'The Underground',     desc:'Unpredictable and HIGHLY TOXIC. Can\'t even stand still. No-entry. Keep this one far from the crowd.' },
+  { symbol:'Ti', name:'Titanium',  category:'Transition Metal',      atomicNumber:22, meltingPoint:1668, density:4.51,  conductivity:'Low',      magnetic:false, toxic:false, radioactive:false, origin:'The Coastal Scene',   desc:'Lightweight but tough. Biocompatible crowd member. Corrosion resistant — been to hundreds of shows.' },
+  { symbol:'U',  name:'Uranium',   category:'Actinide Metal',        atomicNumber:92, meltingPoint:1132, density:19.05, conductivity:'Moderate', magnetic:false, toxic:true,  radioactive:true,  origin:'Unknown',             desc:'RADIOACTIVE and TOXIC. Do NOT let this anywhere near the crowd. Level-5 threat. Turn it away immediately.' },
+  { symbol:'Cu', name:'Copper',    category:'Base Metal',            atomicNumber:29, meltingPoint:1085, density:8.96,  conductivity:'High',     magnetic:false, toxic:false, radioactive:false, origin:'East Side Smelters',  desc:'Reddish, ductile, easy-going. Excellent energy — always charged up. A reliable concert-goer.' },
+  { symbol:'Al', name:'Aluminium', category:'Post-Transition Metal', atomicNumber:13, meltingPoint:660,  density:2.70,  conductivity:'High',     magnetic:false, toxic:false, radioactive:false, origin:'Refinery Block-A',    desc:'Lightweight and recyclable. Good conductor, shows up to everything. Low melting point though — not the most hardcore.' },
+  { symbol:'Ni', name:'Nickel',    category:'Transition Metal',      atomicNumber:28, meltingPoint:1455, density:8.91,  conductivity:'Moderate', magnetic:true,  toxic:false, radioactive:false, origin:'Northern Quarter',    desc:'Hard and ferromagnetic. Solid pit presence. Mild sensitiser — can irritate with prolonged contact.' },
+  { symbol:'Pt', name:'Platinum',  category:'Precious Metal',        atomicNumber:78, meltingPoint:1768, density:21.45, conductivity:'Moderate', magnetic:false, toxic:false, radioactive:false, origin:'Vault Delta',         desc:'Rare, dense, absolutely non-corrosive. Highest-tier patron. Incredibly high melting point — never loses their cool.' },
+  { symbol:'W',  name:'Tungsten',  category:'Transition Metal',      atomicNumber:74, meltingPoint:3422, density:19.25, conductivity:'Moderate', magnetic:false, toxic:false, radioactive:false, origin:'Mountain Venue-6',    desc:'Hardest of the hardcore. Highest melting point on the list — this one has been to every brutal show ever made.' },
+  { symbol:'Cr', name:'Chromium',  category:'Transition Metal',      atomicNumber:24, meltingPoint:1907, density:7.19,  conductivity:'Moderate', magnetic:false, toxic:false, radioactive:false, origin:'Alloy Works East',    desc:'Hard and shiny. Core member of the stainless crew. Watch out — the Cr(VI) form is toxic and occasionally shows up.' },
+];
+
+const ALL_DIRECTIVES = [
+  { id:'D1', text:'KICK OUT anyone TOXIC — no hazards at the venue.',           check: m => !m.toxic },
+  { id:'D2', text:'KICK OUT anyone RADIOACTIVE — not a reactor.',               check: m => !m.radioactive },
+  { id:'D3', text:'LET IN only metals with melting point ABOVE 1000°C.',        check: m => m.meltingPoint > 1000 },
+  { id:'D4', text:'KICK OUT density ABOVE 15 g/cm³ — too heavy for the pit.',  check: m => m.density <= 15 },
+  { id:'D5', text:'LET IN only HIGH or MODERATE conductivity. Low = out.',      check: m => m.conductivity !== 'Low' },
+  { id:'D6', text:'KICK OUT MAGNETIC metals — no ferromagnetic vibes.',         check: m => !m.magnetic },
+  { id:'D7', text:'KICK OUT atomic number ABOVE 80 — keep it classic.',         check: m => m.atomicNumber <= 80 },
+  { id:'D8', text:'LET IN only Precious Metals and Transition Metals.',         check: m => ['Precious Metal','Transition Metal'].includes(m.category) },
+];
+
+const WRONG_APPROVE_MSGS = [
+  "You let in a restricted substance. The pit has been evacuated.",
+  "That one violated tonight's rules. Management is reviewing your shift.",
+  "Contraband got past your gate. Security lead has been notified.",
+  "You waved through someone who shouldn't be here. That's on you.",
+];
+
+const WRONG_REJECT_MSGS = [
+  "That was a legit metalhead! You just turned away a paying fan. They're filing a complaint.",
+  "No rule said to kick them out. The fan is furious and wants a word with your manager.",
+  "That metal passed every check. Bouncing compliant fans wastes everyone's time.",
+  "They were fully cleared. Read the rulebook again before your next call, bouncer.",
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+
+let G = {
+  score:0, citations:0, approved:0, rejected:0,
+  totalEntries:10, remaining:10,
+  activeDirectives:[], entries:[], entryIndex:0,
+  awaitingNext:false, advanceTimer:null,
+};
+
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+
+function generateEntries() {
+  const extras = ALL_DIRECTIVES.slice(2).sort(() => Math.random() - 0.5);
+  G.activeDirectives = [ALL_DIRECTIVES[0], ALL_DIRECTIVES[1], extras[0]];
+
+  const metals = [...METALS_DB].sort(() => Math.random() - 0.5).slice(0, G.totalEntries);
+  G.entries = metals.map((metal, i) => {
+    const shouldApprove = G.activeDirectives.every(d => d.check(metal));
+    let forged=false, forgedProp=null, forgedValue=null, actualValue=null;
+    if (Math.random() < 0.28 && i > 0) {
+      const keys = ['toxic','magnetic','radioactive','density','meltingPoint'];
+      forgedProp  = keys[Math.floor(Math.random() * keys.length)];
+      actualValue = metal[forgedProp];
+      forgedValue = typeof actualValue === 'boolean'
+        ? !actualValue
+        : Math.round(actualValue * (Math.random() > 0.5 ? 1.4 : 0.62));
+      forged = true;
+    }
+    return { metal, shouldApprove, forged, forgedProp, forgedValue, actualValue,
+             docId:`GATE-${Math.floor(1000+Math.random()*9000)}-${String.fromCharCode(65+i)}` };
+  });
+}
+
+function buildRulebook() {
+  const rules = [
+    ...G.activeDirectives.map(d => ({ active:true,  t:`RULE ${d.id} — ACTIVE`, b:d.text })),
+    { active:false, t:'FAKE CARDS', b:'Forged values are underlined on the card.' },
+    { active:false, t:'STRIKES',    b:'3 wrong calls = fired.' },
+  ];
+
+  // Desktop
+  const rb = document.getElementById('rulebook-body');
+  rb.innerHTML = '';
+  rules.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'rule' + (r.active ? ' active-rule' : '');
+    el.innerHTML = `<strong>${r.t}</strong>${r.b}`;
+    rb.appendChild(el);
+  });
+
+  // Mobile drawer
+  const dc = document.getElementById('drawer-content');
+  dc.innerHTML = '';
+  rules.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'rule' + (r.active ? ' active-rule' : '');
+    el.innerHTML = `<strong>${r.t}</strong>${r.b}`;
+    dc.appendChild(el);
+  });
+}
+
+// ── DISPLAY ───────────────────────────────────────────────────────────────────
+
+function showEntry(entry) {
+  G.awaitingNext = false;
+  cancelAutoAdvance();
+  document.getElementById('next-btn').classList.remove('show');
+  document.getElementById('advance-wrap').classList.remove('show');
+
+  const m = entry.metal;
+
+  // Animate figure entering
+  const fig = document.getElementById('metal-figure');
+  fig.className = '';
+  void fig.offsetWidth; // reflow
+  drawPixelMetal(m.symbol, null);
+  fig.classList.add('entering');
+
+  // Set card data
+  document.getElementById('doc-id').textContent       = `REF: ${entry.docId}`;
+  document.getElementById('metal-symbol').textContent = m.symbol;
+  document.getElementById('metal-name').textContent   = m.name;
+
+  // Build card fields in #card-right
+  const grid = document.getElementById('card-right');
+  grid.innerHTML = '';
+
+  // Category / origin
+  addCardField(grid, 'Category', m.category, false, false);
+  addCardField(grid, 'Origin',   m.origin,   false, false);
+
+  const PROPS = [
+    { label:'Atomic #',   key:'atomicNumber', unit:'' },
+    { label:'Melting Pt', key:'meltingPoint', unit:'°C' },
+    { label:'Density',    key:'density',      unit:' g/cm³' },
+    { label:'Conductivity', key:'conductivity', unit:'' },
+    { label:'Magnetic',   key:'magnetic',     unit:'', bool:true },
+    { label:'Toxic',      key:'toxic',        unit:'', bool:true },
+    { label:'Radioactive',key:'radioactive',  unit:'', bool:true },
+  ];
+
+  PROPS.forEach(p => {
+    let val = m[p.key];
+    const isForged = entry.forged && entry.forgedProp === p.key;
+    if (isForged) val = entry.forgedValue;
+    const str = p.bool ? (val ? 'YES' : 'NO') : val + p.unit;
+    const danger = (p.key==='toxic'||p.key==='radioactive') && val;
+    addCardField(grid, p.label, str, danger, isForged);
+  });
+
+  // Description
+  document.getElementById('card-desc').textContent = m.desc;
+
+  // Reset stamp
+  const stamp = document.getElementById('card-stamp');
+  stamp.className = ''; stamp.textContent = '';
+
+  // Slide card up
+  const card = document.getElementById('admission-card');
+  card.classList.remove('show');
+  setTimeout(() => card.classList.add('show'), 100);
+
+  setMsg("Next person's at the gate. Make your call.", 'neutral');
+  setBtns(true);
+  updateProgress();
+}
+
+function addCardField(container, label, value, isDanger, isForged) {
+  const div = document.createElement('div');
+  div.className = 'card-field';
+  div.innerHTML = `<span class="cf-label">${label}</span>
+    <span class="cf-val ${isDanger?'danger-val':''} ${isForged?'forged-val':''}">${value}</span>`;
+  container.appendChild(div);
+}
+
+// ── DECISION ──────────────────────────────────────────────────────────────────
+
+function makeDecision(decision) {
+  if (G.awaitingNext) return;
+  G.awaitingNext = true;
+  setBtns(false);
+
+  const entry   = G.entries[G.entryIndex];
+  const correct = (decision === 'approve') === entry.shouldApprove;
+  const m       = entry.metal;
+
+  // Stamp on card
+  const stamp = document.getElementById('card-stamp');
+  stamp.textContent = decision === 'approve' ? 'LET IN 🤘' : 'KICKED OUT';
+  stamp.className   = decision === 'approve' ? 'approved' : 'rejected';
+  setTimeout(() => stamp.classList.add('show'), 30);
+
+  // Flash pixel figure
+  drawPixelMetal(m.symbol, decision);
+
+  if (correct) {
+    if (decision==='approve') G.approved++; else G.rejected++;
+    G.score += 10; G.remaining--;
+    updateStats();
+
+    let msg = '✓ Good call.';
+    if (entry.forged) msg += ` Spotted the fake — ${entry.forgedProp} was doctored.`;
+    setMsg(msg, 'correct');
+
+    if (checkGameOver()) return;
+
+    // Animate figure leaving
+    const fig = document.getElementById('metal-figure');
+    fig.className = '';
+    void fig.offsetWidth;
+    fig.classList.add(decision === 'approve' ? 'leaving-approve' : 'leaving-reject');
+
+    if (decision === 'approve') {
+      startAutoAdvance();
+    } else {
+      if (G.entryIndex >= G.entries.length - 1) { setTimeout(() => endGame(true), 1200); return; }
+      document.getElementById('next-btn').classList.add('show');
+    }
+
+  } else {
+    G.citations++; G.remaining--;
+    updateStats();
+
+    const fig = document.getElementById('metal-figure');
+    fig.className = '';
+    void fig.offsetWidth;
+    fig.classList.add('leaving-reject');
+
+    if (decision === 'approve') {
+      const msg = WRONG_APPROVE_MSGS[Math.floor(Math.random() * WRONG_APPROVE_MSGS.length)];
+      setMsg(`✗ Strike ${G.citations}/3. ${msg}`, 'wrong');
+      if (checkGameOver()) return;
+      if (G.entryIndex >= G.entries.length - 1) { setTimeout(() => endGame(true), 1200); return; }
+      document.getElementById('next-btn').classList.add('show');
+    } else {
+      if (checkGameOver()) return;
+      setTimeout(() => showFailModal(entry), 400);
+    }
+  }
+}
+
+// ── AUTO-ADVANCE ──────────────────────────────────────────────────────────────
+
+function startAutoAdvance() {
+  const wrap  = document.getElementById('advance-wrap');
+  const fill  = document.getElementById('advance-fill');
+  const count = document.getElementById('advance-count');
+  const DUR   = 3000;
+
+  wrap.classList.add('show');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+  count.textContent = '3';
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    fill.style.transition = `width ${DUR}ms linear`;
+    fill.style.width = '0%';
+  }));
+
+  let t = 3;
+  G.advanceTimer = setInterval(() => {
+    t--;
+    count.textContent = t;
+    if (t <= 0) {
+      clearInterval(G.advanceTimer); G.advanceTimer = null;
+      wrap.classList.remove('show');
+      if (G.entryIndex >= G.entries.length - 1) { endGame(true); return; }
+      nextEntry();
+    }
+  }, 1000);
+}
+
+function skipAdvance() {
+  cancelAutoAdvance();
+  if (G.entryIndex >= G.entries.length - 1) { endGame(true); return; }
+  nextEntry();
+}
+
+function cancelAutoAdvance() {
+  if (G.advanceTimer) { clearInterval(G.advanceTimer); G.advanceTimer = null; }
+  document.getElementById('advance-wrap').classList.remove('show');
+}
+
+// ── FAILURE MODAL ─────────────────────────────────────────────────────────────
+
+function showFailModal(entry) {
+  const m = entry.metal;
+  document.getElementById('fail-sym').textContent   = m.symbol;
+  document.getElementById('fail-mname').textContent = m.name;
+  document.getElementById('fail-msub').textContent  = `${m.category} · ${m.origin}`;
+
+  const reasonsEl = document.getElementById('fail-reasons');
+  reasonsEl.innerHTML = '';
+
+  if (entry.forged) {
+    const r = document.createElement('div');
+    r.className = 'fail-reason';
+    r.innerHTML = `<strong>FAKE CARD — REAL STATS ARE FINE</strong>
+      Card faked the <em>${entry.forgedProp}</em>
+      (card said: <strong>${entry.forgedValue}</strong>, actual: <strong>${entry.actualValue}</strong>).
+      Real stats pass all tonight's rules — should've let them in.`;
+    reasonsEl.appendChild(r);
+  } else {
+    G.activeDirectives.forEach(d => {
+      const r = document.createElement('div');
+      r.className = 'fail-reason';
+      r.innerHTML = `<strong>RULE ${d.id} — THIS PERSON PASSES</strong>
+        They satisfy Rule ${d.id}: "${d.text}". No reason to kick them out.`;
+      reasonsEl.appendChild(r);
+    });
+  }
+
+  const propsEl = document.getElementById('fail-props-grid');
+  propsEl.innerHTML = '';
+  [
+    { label:'Toxic',        val: m.toxic      ? 'YES — TOXIC'  : 'SAFE',  good: !m.toxic },
+    { label:'Radioactive',  val: m.radioactive ? 'YES — ACTIVE' : 'SAFE',  good: !m.radioactive },
+    { label:'Magnetic',     val: m.magnetic    ? 'YES'          : 'NO',    good: !m.magnetic },
+    { label:'Density',      val: m.density + ' g/cm³',                     good: m.density <= 15 },
+    { label:'Melting Pt',   val: m.meltingPoint + '°C',                    good: m.meltingPoint > 1000 },
+    { label:'Conductivity', val: m.conductivity,                           good: m.conductivity !== 'Low' },
+  ].forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'fprop';
+    div.innerHTML = `<div class="fprop-label">${p.label}</div>
+      <div class="fprop-val ${p.good?'ok':'bad'}">${p.val}</div>`;
+    propsEl.appendChild(div);
+  });
+
+  document.getElementById('fail-note').textContent =
+    WRONG_REJECT_MSGS[Math.floor(Math.random() * WRONG_REJECT_MSGS.length)];
+  document.getElementById('fail-cit-left').textContent =
+    G.citations < 3 ? `${3 - G.citations} strike(s) left before fired.` : "YOU'RE FIRED.";
+
+  document.getElementById('fail-modal').classList.add('show');
+}
+
+function closeFailModal() {
+  document.getElementById('fail-modal').classList.remove('show');
+  if (checkGameOver()) return;
+  if (G.entryIndex >= G.entries.length - 1) { endGame(true); return; }
+  document.getElementById('next-btn').classList.add('show');
+}
+
+// ── MOBILE DRAWER ─────────────────────────────────────────────────────────────
+
+function openDrawer()  { document.getElementById('directives-drawer').classList.add('open'); }
+function closeDrawer() { document.getElementById('directives-drawer').classList.remove('open'); }
+
+// ── FLOW ──────────────────────────────────────────────────────────────────────
+
+function nextEntry() {
+  cancelAutoAdvance();
+  G.entryIndex++;
+  if (G.entryIndex >= G.entries.length) { endGame(true); return; }
+  document.getElementById('next-btn').classList.remove('show');
+  // Hide card before showing next
+  document.getElementById('admission-card').classList.remove('show');
+  setTimeout(() => showEntry(G.entries[G.entryIndex]), 200);
+}
+
+function checkGameOver() {
+  if (G.citations >= 3) { setTimeout(() => endGame(false), 700); return true; }
+  return false;
+}
+
+function endGame(completed) {
+  cancelAutoAdvance();
+  const score  = G.score - G.citations * 5 + (completed ? 20 : 0);
+  const rating = score >= 90 ? 'EXEMPLARY' : score >= 60 ? 'ADEQUATE' : 'POOR';
+  document.getElementById('go-score').textContent   = `SCORE: ${score} pts`;
+  document.getElementById('go-summary').textContent = completed
+    ? `Shift complete. ${G.approved+G.rejected} people — ${G.approved} let in, ${G.rejected} kicked out, ${G.citations} strike(s). Rating: ${rating}.`
+    : `You're fired. 3 strikes after ${G.approved+G.rejected} people. Pack your stuff.`;
+  document.getElementById('game-over').classList.add('show');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
+function setMsg(text, type) {
+  const el = document.getElementById('message-log');
+  el.textContent = text; el.className = type;
+}
+function setBtns(on) {
+  document.getElementById('btn-approve').disabled = !on;
+  document.getElementById('btn-reject').disabled  = !on;
+}
+function updateStats() {
+  document.getElementById('s-approved').textContent  = G.approved;
+  document.getElementById('s-rejected').textContent  = G.rejected;
+  const ce = document.getElementById('s-citations');
+  ce.textContent = G.citations;
+  ce.className   = 'stat-value' + (G.citations > 0 ? ' danger' : '');
+  document.getElementById('s-remaining').textContent = Math.max(0, G.remaining);
+}
+function updateProgress() {
+  document.getElementById('progress-fill').style.width = (G.entryIndex / G.totalEntries * 100) + '%';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+function startGame() {
+  document.getElementById('intro').style.display = 'none';
+  generateEntries(); buildRulebook();
+  showEntry(G.entries[0]); updateStats();
+}
+
+function restartGame() {
+  cancelAutoAdvance();
+  G = { score:0, citations:0, approved:0, rejected:0, totalEntries:10, remaining:10,
+        activeDirectives:[], entries:[], entryIndex:0, awaitingNext:false, advanceTimer:null };
+  document.getElementById('game-over').classList.remove('show');
+  generateEntries(); buildRulebook();
+  showEntry(G.entries[0]); updateStats();
+}
+</script>
+</body>
+</html>
